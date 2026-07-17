@@ -351,16 +351,14 @@ function WeekSelector({ trackings, selectedId, onSelect, loading }) {
                     onSelect(t.id);
                     setOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors ${
-                    isSel
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors ${isSel
                       ? "bg-emerald-500/10 text-emerald-300"
                       : "text-slate-300 hover:bg-slate-800/60"
-                  }`}
+                    }`}
                 >
                   <span
-                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                      isSel ? "border-emerald-400" : "border-slate-600"
-                    }`}
+                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${isSel ? "border-emerald-400" : "border-slate-600"
+                      }`}
                   >
                     {isSel && <span className="w-2 h-2 rounded-full bg-emerald-400" />}
                   </span>
@@ -457,9 +455,11 @@ function MetricGrid({ data, loading }) {
         loading={loading}
         large
         subtext={
-          data?.market?.startDate
-            ? `Since ${new Date(data.market.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
-            : ""
+          data?.market?.startDate ? (
+            <span className="text-emerald-600 dark:text-emerald-400">
+              Since {new Date(data.market.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+            </span>
+          ) : ""
         }
       />
       <MetricCard
@@ -469,7 +469,11 @@ function MetricGrid({ data, loading }) {
         accent="blue"
         loading={loading}
         large
-        subtext={`${data?.projections?.historicalVelocity ?? 1.15} tweets/hr${data?.projections?.velocitySource === "calibrated" ? " (calibrated)" : " (default)"} · ${data?.projections?.remainingHours ?? 0}h remaining`}
+        subtext={
+          <span className="text-blue-600 dark:text-blue-400">
+            {`${data?.projections?.historicalVelocity ?? 1.15} tweets/hr${data?.projections?.velocitySource === "calibrated" ? " (calibrated)" : " (default)"} · ${data?.projections?.remainingHours ?? 0}h remaining`}
+          </span>
+        }
       />
       <MetricCard
         label="Event-Adjusted Projection"
@@ -479,9 +483,11 @@ function MetricGrid({ data, loading }) {
         loading={loading}
         large
         subtext={
-          data?.projections?.totalExtraTweets > 0
-            ? `+${data.projections.totalExtraTweets} from launch catalysts`
-            : "No active launch catalysts"
+          <span className="text-orange-600 dark:text-orange-400">
+            {data?.projections?.totalExtraTweets > 0
+              ? `+${data.projections.totalExtraTweets} from launch catalysts`
+              : "No active launch catalysts"}
+          </span>
         }
       />
     </div>
@@ -862,11 +868,10 @@ function ArbitrageCalculator() {
 
               {/* Status */}
               <div
-                className={`p-2.5 rounded-lg text-xs font-medium flex items-center gap-2 ${
-                  result.arbExists
+                className={`p-2.5 rounded-lg text-xs font-medium flex items-center gap-2 ${result.arbExists
                     ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-300"
                     : "bg-amber-500/10 border border-amber-500/30 text-amber-300"
-                }`}
+                  }`}
               >
                 {result.arbExists ? (
                   <>
