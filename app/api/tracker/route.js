@@ -1,45 +1,8 @@
-// ─── Persistent cache (in-memory + disk, survives restarts) ───
-const cache = new Map();
+// ─── Cache abstraction (Map+disk in dev, Upstash Redis in production) ───
+import { cacheGet, cacheSet } from "../../../lib/cache.js";
+
 const CACHE_TTL = 300_000; // 5 minutes
 const RATE_LIMIT_BACKOFF = 600_000; // 10 min backoff when we hit 429
-const CACHE_DIR = process.cwd() + "/.cache";
-
-import fs from "fs";
-import path from "path";
-
-// Restore cache from disk on startup
-function loadDiskCache() {
-  try {
-    if (!fs.existsSync(CACHE_DIR)) return;
-    const files = fs.readdirSync(CACHE_DIR);
-    for (const file of files) {
-      if (!file.endsWith(".json")) continue;
-      const key = file.slice(0, -5);
-      const raw = fs.readFileSync(path.join(CACHE_DIR, file), "utf-8");
-      const entry = JSON.parse(raw);
-      setCache(key, entry);
-    }
-    if (files.length > 0) console.log(`[cache] Restored ${files.length} entries from disk`);
-  } catch (e) {
-    console.error("[cache] Failed to load disk cache:", e.message);
-  }
-}
-loadDiskCache();
-
-function saveToDisk(key, entry) {
-  try {
-    if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
-    const safeKey = String(key).replace(/[^a-zA-Z0-9_-]/g, "_");
-    fs.writeFileSync(path.join(CACHE_DIR, `${safeKey}.json`), JSON.stringify(entry), "utf-8");
-  } catch (e) {
-    // Non-critical — in-memory cache still works
-  }
-}
-
-function setCache(key, entry) {
-  cache.set(key, entry);
-  saveToDisk(key, entry);
-}
 
 const BROWSER_HEADERS = {
   "User-Agent":
@@ -104,7 +67,7 @@ const VELOCITY_CACHE_TTL = 3_600_000; // 1 hour — velocity doesn't change minu
 const MAX_CALIBRATION_WEEKS = 4; // look back at most 4 completed weeks
 
 async function calibrateVelocity(trackings) {
-  const cached = cache.get(VELOCITY_CACHE_KEY);
+  const cached = await cacheGet(VELOCITY_CACHE_KEY);
   if (cached && Date.now() - cached.timestamp < VELOCITY_CACHE_TTL) {
     return cached.velocity;
   }
@@ -122,7 +85,7 @@ async function calibrateVelocity(trackings) {
     .slice(0, MAX_CALIBRATION_WEEKS);
 
   if (recent.length === 0) {
-    setCache(VELOCITY_CACHE_KEY, { velocity: null, timestamp: Date.now() });
+    cacheSet(VELOCITY_CACHE_KEY, { velocity: null, timestamp: Date.now() });
     return null;
   }
 
@@ -168,7 +131,7 @@ async function calibrateVelocity(trackings) {
 
   const calibrated = totalWeight > 0 ? weightedSum / totalWeight : null;
 
-  setCache(VELOCITY_CACHE_KEY, { velocity: calibrated, timestamp: Date.now() });
+  cacheSet(VELOCITY_CACHE_KEY, { velocity: calibrated, timestamp: Date.now() });
   return calibrated;
 }
 
@@ -191,7 +154,7 @@ export async function GET(request) {
   const selectedTrackingId = searchParams.get("trackingId");
   const cacheKey = selectedTrackingId ?? "__active__";
 
-  const cached = cache.get(cacheKey);
+  const cached = await cacheGet(cacheKey);
   if (cached && now - cached.timestamp < CACHE_TTL) {
     return Response.json({
       ...cached.data,
@@ -202,7 +165,7 @@ export async function GET(request) {
 
   try {
     // ── 0. Check if we're in a rate-limit backoff period ─────
-    const rateLimitMarker = cache.get("__rate_limited__");
+    const rateLimitMarker = await cacheGet("__rate_limited__");
     var isRateLimited = rateLimitMarker && Date.now() < rateLimitMarker.timestamp;
 
     // ── 1. Fetch all external data in parallel (skip Space Devs if rate-limited) ──
@@ -231,10 +194,10 @@ export async function GET(request) {
 
     // If Space Devs is rate-limited, serve stale cache or set a backoff marker
     if (launchesRes.status === 429 || eventsRes.status === 429) {
-      const stale = cache.get(cacheKey);
+      const stale = await cacheGet(cacheKey);
       if (stale) {
         // Extend the cache so we don't hammer the API
-        setCache(cacheKey, { data: stale.data, timestamp: Date.now() - CACHE_TTL + RATE_LIMIT_BACKOFF });
+        cacheSet(cacheKey, { data: stale.data, timestamp: Date.now() - CACHE_TTL + RATE_LIMIT_BACKOFF });
         return Response.json({
           ...stale.data,
           cached: true,
@@ -243,7 +206,7 @@ export async function GET(request) {
         });
       }
       // No stale cache — set a backoff marker so we don't re-hit the API
-      setCache("__rate_limited__", { timestamp: Date.now() + RATE_LIMIT_BACKOFF });
+      cacheSet("__rate_limited__", { timestamp: Date.now() + RATE_LIMIT_BACKOFF });
       // Override isRateLimited since we just set the marker
       isRateLimited = true;
     }
@@ -499,13 +462,13 @@ export async function GET(request) {
     };
 
     if (!isRateLimited) {
-      setCache(cacheKey, { data: result, timestamp: Date.now() });
+      cacheSet(cacheKey, { data: result, timestamp: Date.now() });
     }
     return Response.json(result);
   } catch (error) {
     console.error("/api/tracker error:", error.message);
 
-    const stale = cache.get(cacheKey);
+    const stale = await cacheGet(cacheKey);
     if (stale) {
       return Response.json({
         ...stale.data,
