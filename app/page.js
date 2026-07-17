@@ -696,16 +696,17 @@ function ArbitrageCalculator() {
 
     const valid = nums.filter((n) => n !== null);
     if (valid.length < 2) {
-      setResult({ error: "Enter at least 2 valid prices (as decimals, e.g. 0.54 for 54¢)" });
+      setResult({ error: "Enter at least 2 valid share prices (e.g. 0.54 = 54¢)" });
       return;
     }
 
-    // Convert prices to implied probabilities
-    const implied = valid.map((p) => 1 / p);
+    // Polymarket prices ARE implied probabilities (e.g., 0.07 = 7%)
+    const implied = valid; // price IS the probability
     const totalImplied = implied.reduce((a, b) => a + b, 0);
     const arbExists = totalImplied < 1;
 
-    // Dutching: allocate stakes proportional to 1/odds
+    // Dutching: stakes proportional to price, equal payout across outcomes
+    // Stake_i = (price_i / sum(prices)) * totalStake → payout = totalStake / sum(prices)
     const totalStake = budgetNum;
     const stakes = implied.map((i) => (i / totalImplied) * totalStake);
     const payout = totalStake / totalImplied;
@@ -714,7 +715,7 @@ function ArbitrageCalculator() {
 
     const details = valid.map((p, i) => ({
       price: p,
-      probability: (1 / p * 100).toFixed(2),
+      probability: (p * 100).toFixed(2),
       stake: stakes[i].toFixed(2),
       payout: (stakes[i] / p).toFixed(2),
     }));
@@ -746,7 +747,7 @@ function ArbitrageCalculator() {
         {/* Inputs */}
         <div className="space-y-3">
           <p className="text-xs text-slate-500">
-            Enter neighboring bracket prices as decimals (e.g., 54¢ = 0.54)
+            Enter share prices (the price IS the probability, e.g. 0.54 = 54%)
           </p>
 
           {/* Bracket count control */}
