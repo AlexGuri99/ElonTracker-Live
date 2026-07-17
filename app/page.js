@@ -970,6 +970,13 @@ export default function DashboardPage() {
   const dataRef = useRef(null);
   const intervalRef = useRef(null);
 
+  // Read trackingId from URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tid = params.get("trackingId");
+    if (tid) setSelectedTrackingId(tid);
+  }, []);
+
   // Keep ref in sync for use inside fetch callback
   useEffect(() => {
     dataRef.current = data;
