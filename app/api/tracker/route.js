@@ -277,15 +277,44 @@ export async function GET(request) {
     });
 
     let currentCount = 0;
+    let dailyCounts = {}; // date string -> cumulative count
     if (postsRes.ok) {
       const postsRaw = await postsRes.text();
       try {
         const postsData = JSON.parse(postsRaw);
-        currentCount = Array.isArray(postsData)
-          ? postsData.length
-          : Array.isArray(postsData.data)
-            ? postsData.data.length
-            : 0;
+        const posts = Array.isArray(postsData) ? postsData : Array.isArray(postsData.data) ? postsData.data : [];
+        currentCount = posts.length;
+
+        // Build cumulative counts per day from post timestamps
+        if (posts.length > 0) {
+          // Sort posts by createdAt ascending
+          const sorted = [...posts]
+            .filter(p => p.createdAt)
+            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+          let running = 0;
+          let lastDate = "";
+          for (const post of sorted) {
+            running++;
+            const day = new Date(post.createdAt).toISOString().slice(0, 10);
+            if (day !== lastDate) {
+              dailyCounts[day] = running;
+              lastDate = day;
+            }
+          }
+          // Backfill any days between the last post and today
+          const lastPostDay = new Date(sorted[sorted.length - 1].createdAt).toISOString().slice(0, 10);
+          const todayKey = new Date().toISOString().slice(0, 10);
+          let fillDay = new Date(lastPostDay);
+          while (fillDay.toISOString().slice(0, 10) < todayKey) {
+            fillDay = new Date(fillDay.getTime() + 24 * 60 * 60 * 1000);
+            const dayKey = fillDay.toISOString().slice(0, 10);
+            if (!(dayKey in dailyCounts)) {
+              dailyCounts[dayKey] = currentCount;
+            }
+          }
+          dailyCounts[todayKey] = currentCount;
+        }
       } catch {
         console.error("Invalid JSON from posts API");
       }
@@ -404,6 +433,7 @@ export async function GET(request) {
     // ── 8. Chart data (daily points for the full window) ──────
     const chartData = [];
     const totalDays = Math.ceil((activeEnd - activeStart) / (24 * 60 * 60 * 1000));
+    let prevActual = null;
 
     for (let i = 0; i <= totalDays; i++) {
       const pointDate = new Date(activeStart + i * 24 * 60 * 60 * 1000);
@@ -419,12 +449,22 @@ export async function GET(request) {
         }
       }
 
+      const dateKey = pointDate.toISOString().slice(0, 10);
+      const todayKey = new Date().toISOString().slice(0, 10);
+      // Use the cumulative count at this day, or currentCount for today, or null for future
+      let actual = null;
+      if (dateKey <= todayKey) {
+        actual = dailyCounts[dateKey] ?? (dateKey === todayKey ? currentCount : null);
+      }
+      const dailyChange = actual !== null && prevActual !== null ? actual - prevActual : null;
       chartData.push({
-        date: pointDate.toISOString().slice(0, 10),
-        actual: pointMs <= now ? currentCount : null,
+        date: dateKey,
+        actual,
+        dailyChange,
         baseline: Math.round(cumulativeBaseline * 100) / 100,
         eventAdjusted: Math.round((cumulativeBaseline + cumulativeCatalyst) * 100) / 100,
       });
+      if (actual !== null) prevActual = actual;
     }
 
     // ── 8. Build response ─────────────────────────────────────

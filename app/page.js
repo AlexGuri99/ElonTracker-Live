@@ -505,16 +505,25 @@ const formatDate = (dateStr) => {
 
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload) return null;
+  const data = payload[0]?.payload;
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 shadow-xl text-xs space-y-1">
       <p className="text-slate-400 font-medium">{formatDate(label)}</p>
-      {payload.map((entry, i) => (
-        <p key={i} className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-          <span className="text-slate-400">{entry.name}:</span>
-          <span className="text-slate-200 font-mono font-medium">{entry.value?.toFixed(1)}</span>
-        </p>
-      ))}
+      {payload.map((entry, i) => {
+        const isActual = entry.name === "Actual";
+        return (
+          <p key={i} className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+            <span className="text-slate-400">{entry.name}:</span>
+            <span className="text-slate-200 font-mono font-medium">{entry.value?.toFixed(1)}</span>
+            {isActual && data?.dailyChange !== null && data?.dailyChange !== undefined && (
+              <span className={`font-mono text-[10px] ${data.dailyChange >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                ({data.dailyChange >= 0 ? "+" : ""}{data.dailyChange})
+              </span>
+            )}
+          </p>
+        );
+      })}
     </div>
   );
 }
