@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ElonTracker Live — Polymarket Prediction Dashboard",
+  title: "PolyTweetWatch — Polymarket Tweet Prediction Dashboard",
   description:
-    "Real-time dashboard tracking Elon Musk tweet counts, SpaceX launch catalysts, and Polymarket arbitrage opportunities.",
+    "Real-time dashboard tracking tweet counts, catalysts, and Polymarket arbitrage opportunities across multiple personalities.",
 };
 
 export default function RootLayout({

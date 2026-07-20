@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
+import persons from "../lib/persons.js";
 import {
   Clock,
   Activity,
@@ -26,6 +27,16 @@ import {
   Minus,
   DollarSign,
   Car,
+  User,
+  Mic,
+  Gavel,
+  MessageSquare,
+  FileText,
+  Globe,
+  Shield,
+  BookOpen,
+  Newspaper,
+  Megaphone,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────
@@ -186,6 +197,29 @@ function EventCard({ event }) {
     falcon: { icon: Rocket, bg: "bg-blue-500/10 text-blue-400", badge: "bg-blue-500/15 text-blue-300", label: "Falcon" },
     tesla: { icon: Car, bg: "bg-amber-500/10 text-amber-400", badge: "bg-amber-500/15 text-amber-300", label: "Tesla" },
     starlink: { icon: Satellite, bg: "bg-cyan-500/10 text-cyan-400", badge: "bg-cyan-500/15 text-cyan-300", label: "Starlink" },
+    // News-based event types for non-Elon persons
+    rally: { icon: Megaphone, bg: "bg-red-500/10 text-red-400", badge: "bg-red-500/15 text-red-300", label: "Rally" },
+    legal: { icon: Gavel, bg: "bg-yellow-500/10 text-yellow-400", badge: "bg-yellow-500/15 text-yellow-300", label: "Legal" },
+    debate: { icon: MessageSquare, bg: "bg-orange-500/10 text-orange-400", badge: "bg-orange-500/15 text-orange-300", label: "Debate" },
+    announcement: { icon: FileText, bg: "bg-indigo-500/10 text-indigo-400", badge: "bg-indigo-500/15 text-indigo-300", label: "Announcement" },
+    regulatory: { icon: Gavel, bg: "bg-yellow-500/10 text-yellow-400", badge: "bg-yellow-500/15 text-yellow-300", label: "Regulatory" },
+    launch: { icon: Rocket, bg: "bg-blue-500/10 text-blue-400", badge: "bg-blue-500/15 text-blue-300", label: "Launch" },
+    security: { icon: Shield, bg: "bg-red-500/10 text-red-400", badge: "bg-red-500/15 text-red-300", label: "Security" },
+    public: { icon: Mic, bg: "bg-teal-500/10 text-teal-400", badge: "bg-teal-500/15 text-teal-300", label: "Appearance" },
+    hearing: { icon: Gavel, bg: "bg-amber-500/10 text-amber-400", badge: "bg-amber-500/15 text-amber-300", label: "Hearing" },
+    vote: { icon: FileText, bg: "bg-violet-500/10 text-violet-400", badge: "bg-violet-500/15 text-violet-300", label: "Vote" },
+    speech: { icon: Mic, bg: "bg-emerald-500/10 text-emerald-400", badge: "bg-emerald-500/15 text-emerald-300", label: "Speech" },
+    media: { icon: Mic, bg: "bg-cyan-500/10 text-cyan-400", badge: "bg-cyan-500/15 text-cyan-300", label: "Media" },
+    diplomatic: { icon: Globe, bg: "bg-blue-500/10 text-blue-400", badge: "bg-blue-500/15 text-blue-300", label: "Diplomatic" },
+    geopolitical: { icon: Globe, bg: "bg-red-500/10 text-red-400", badge: "bg-red-500/15 text-red-300", label: "Geopolitical" },
+    aid: { icon: Globe, bg: "bg-green-500/10 text-green-400", badge: "bg-green-500/15 text-green-300", label: "Aid" },
+    military: { icon: Shield, bg: "bg-amber-500/10 text-amber-400", badge: "bg-amber-500/15 text-amber-300", label: "Military" },
+    publication: { icon: BookOpen, bg: "bg-purple-500/10 text-purple-400", badge: "bg-purple-500/15 text-purple-300", label: "Publication" },
+    lecture: { icon: BookOpen, bg: "bg-indigo-500/10 text-indigo-400", badge: "bg-indigo-500/15 text-indigo-300", label: "Lecture" },
+    honor: { icon: BookOpen, bg: "bg-amber-500/10 text-amber-400", badge: "bg-amber-500/15 text-amber-300", label: "Honor" },
+    news: { icon: Newspaper, bg: "bg-slate-500/10 text-slate-400", badge: "bg-slate-500/15 text-slate-300", label: "News" },
+    policy: { icon: FileText, bg: "bg-indigo-500/10 text-indigo-400", badge: "bg-indigo-500/15 text-indigo-300", label: "Policy" },
+    crisis: { icon: AlertTriangle, bg: "bg-red-500/10 text-red-400", badge: "bg-red-500/15 text-red-300", label: "Crisis" },
   };
 
   const cfg = typeConfig[event.type] ?? typeConfig.falcon;
@@ -234,15 +268,25 @@ function EventCard({ event }) {
 function LoadingSkeleton() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="max-w-7xl mx-auto px-4 py-6 space-y-8">
-        <div className="h-16 bg-slate-900/60 rounded-xl animate-pulse" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-32 bg-slate-900/60 rounded-xl animate-pulse" />
+      <div className="flex max-w-[1480px] mx-auto px-4 py-6 gap-4">
+        <div className="hidden md:flex shrink-0 pt-2 flex-col gap-1 w-56">
+          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+            <div key={i} className="flex items-center gap-3 px-2.5 py-2 rounded-lg bg-slate-800/60 animate-pulse h-10">
+              <div className="w-8 h-8 rounded-lg bg-slate-700/60 shrink-0" />
+              <div className="h-3 w-36 bg-slate-700/60 rounded" />
+            </div>
           ))}
         </div>
-        <div className="h-48 bg-slate-900/60 rounded-xl animate-pulse" />
-        <div className="h-64 bg-slate-900/60 rounded-xl animate-pulse" />
+        <div className="flex-1 space-y-8">
+          <div className="h-16 bg-slate-900/60 rounded-xl animate-pulse" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-32 bg-slate-900/60 rounded-xl animate-pulse" />
+            ))}
+          </div>
+          <div className="h-48 bg-slate-900/60 rounded-xl animate-pulse" />
+          <div className="h-64 bg-slate-900/60 rounded-xl animate-pulse" />
+        </div>
       </div>
     </div>
   );
@@ -277,11 +321,15 @@ function ErrorState({ message, onRetry }) {
 // Empty State (no events)
 // ─────────────────────────────────────────────────────────────
 
-function EmptyEvents() {
+function EmptyEvents({ isElon }) {
   return (
     <div className="text-center py-8">
       <Rocket size={32} className="mx-auto text-slate-600 mb-2" />
-      <p className="text-slate-500 text-sm">No SpaceX launches detected within the contract window</p>
+      <p className="text-slate-500 text-sm">
+        {isElon
+          ? "No SpaceX launches detected within the contract window"
+          : "No significant events detected within the contract window"}
+      </p>
     </div>
   );
 }
@@ -387,12 +435,19 @@ function WeekSelector({ trackings, selectedId, onSelect, loading }) {
 // Header Block
 // ─────────────────────────────────────────────────────────────
 
-function HeaderBlock({ data, trackings, selectedId, onSelectTracking, lastUpdated, onRefresh, refreshing }) {
+function HeaderBlock({ data, trackings, selectedId, onSelectTracking, lastUpdated, onRefresh, refreshing, person }) {
   return (
     <div className="relative z-10 rounded-xl border border-slate-800 bg-slate-900/70 backdrop-blur-sm p-5">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-1">
+            {person && (
+              <img
+                src={person.icon}
+                alt={person.name}
+                className="w-7 h-7 rounded-full object-cover ring-1 ring-slate-700 shrink-0"
+              />
+            )}
             <h1 className="text-lg md:text-xl font-bold text-slate-100 truncate">
               {data?.market?.marketLink ? (
                 <a
@@ -401,11 +456,11 @@ function HeaderBlock({ data, trackings, selectedId, onSelectTracking, lastUpdate
                   rel="noopener noreferrer"
                   className="hover:text-emerald-400 transition-colors inline-flex items-center gap-1.5"
                 >
-                  {data?.market?.title ?? "ElonTracker Live"}
+                  {data?.market?.title ?? `${person?.name ?? "Tracker"} Live`}
                   <ExternalLink size={14} className="text-slate-500 shrink-0" />
                 </a>
               ) : (
-                data?.market?.title ?? "ElonTracker Live"
+                data?.market?.title ?? `${person?.name ?? "Tracker"} Live`
               )}
             </h1>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0">
@@ -612,8 +667,9 @@ function ProjectionChart({ chartData, loading }) {
 // Catalyst Timeline
 // ─────────────────────────────────────────────────────────────
 
-function CatalystTimeline({ events }) {
+function CatalystTimeline({ events, person }) {
   const hasEvents = Array.isArray(events) && events.length > 0;
+  const isElon = person?.id === "elon";
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/60 backdrop-blur-sm p-5">
@@ -626,13 +682,13 @@ function CatalystTimeline({ events }) {
         </div>
         {hasEvents && (
           <span className="text-xs text-slate-500">
-            {events.length} launch{events.length !== 1 ? "es" : ""} in window
+            {events.length} event{events.length !== 1 ? "s" : ""} in window
           </span>
         )}
       </div>
 
       {!hasEvents ? (
-        <EmptyEvents />
+        <EmptyEvents isElon={isElon} />
       ) : (
         <div className="space-y-2">
           {events.map((ev, i) => (
@@ -645,14 +701,23 @@ function CatalystTimeline({ events }) {
         <div className="mt-4 p-3 rounded-lg bg-slate-900/60 border border-slate-800/50">
           <div className="flex items-center gap-2 text-xs text-slate-400">
             <Info size={14} className="text-slate-500 shrink-0" />
-            <span>
-              Launch windows are 8-hour blocks centered on T-0. Starship flights
-              apply a <strong className="text-purple-300">2.10×</strong> tweet rate
-              multiplier; Falcon/Starlink flights apply{" "}
-              <strong className="text-blue-300">1.25×</strong>.
-              Tesla events (earnings, product launches) apply{" "}
-              <strong className="text-amber-300">1.75×</strong> over 4 hours.
-            </span>
+            {isElon ? (
+              <span>
+                Launch windows are 8-hour blocks centered on T-0. Starship flights
+                apply a <strong className="text-purple-300">2.10×</strong> tweet rate
+                multiplier; Falcon/Starlink flights apply{" "}
+                <strong className="text-blue-300">1.25×</strong>.
+                Tesla events (earnings, product launches) apply{" "}
+                <strong className="text-amber-300">1.75×</strong> over 4 hours.
+              </span>
+            ) : (
+              <span>
+                News events are detected via NewsAPI and classified by type.
+                Each event type applies a different tweet rate multiplier
+                (e.g., <strong className="text-red-300">1.5×–2.0×</strong>)
+                over a 4–8 hour window. Events are cached for 30 minutes.
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -945,7 +1010,7 @@ function Footer() {
     <div className="border-t border-slate-800/50 mt-8 pt-4 pb-6">
       <div className="flex flex-col md:flex-row items-center justify-between gap-2 text-xs text-slate-600">
         <span>
-          ElonTracker Live &mdash; Data sourced from Polymarket &amp; SpaceX
+          PolyTweetWatch &mdash; Data sourced from Polymarket &amp; NewsAPI
           Launch Library
         </span>
         <div className="flex items-center gap-3">
@@ -966,6 +1031,51 @@ function Footer() {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Person Tabs
+// ─────────────────────────────────────────────────────────────
+
+function PersonTabs({ personsList, selectedId, onSelect }) {
+  return (
+    <div className="hidden md:block shrink-0 pt-2">
+      <div className="sticky top-6 flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-900/70 backdrop-blur-sm p-2 shadow-lg shadow-black/20 w-56">
+        {personsList.map((p) => {
+          const isActive = p.id === selectedId;
+          return (
+            <button
+              key={p.id}
+              onClick={() => onSelect(p.id)}
+              className={`flex items-center gap-3 px-2.5 py-2 rounded-lg transition-all duration-200 text-left ${
+                isActive
+                  ? "bg-emerald-500/10 ring-1 ring-emerald-500/30"
+                  : "opacity-60 hover:opacity-90 hover:bg-slate-800/60"
+              }`}
+            >
+              <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0">
+                <img
+                  src={p.icon}
+                  alt={p.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                    e.target.nextSibling.style.display = "flex";
+                  }}
+                />
+                <div className="hidden w-full h-full items-center justify-center bg-slate-700 text-slate-400 text-xs font-bold">
+                  {p.name.charAt(0)}
+                </div>
+              </div>
+              <span className={`text-sm font-medium whitespace-nowrap ${isActive ? "text-emerald-300" : "text-slate-300"}`}>
+                {p.name}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // Main Dashboard Page
 // ─────────────────────────────────────────────────────────────
 
@@ -976,17 +1086,20 @@ export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTrackingId, setSelectedTrackingId] = useState(null);
+  const [selectedPerson, setSelectedPerson] = useState("elon");
   const dataRef = useRef(null);
   const intervalRef = useRef(null);
 
-  // Read trackingId from URL on mount
+  // Read trackingId and person from URL on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tid = params.get("trackingId");
     if (tid) setSelectedTrackingId(tid);
+    const pid = params.get("person");
+    if (pid) setSelectedPerson(pid);
   }, []);
 
-  // Keep ref in sync for use inside fetch callback
+  // Keep data ref in sync for use inside fetch callback
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
@@ -994,10 +1107,12 @@ export default function DashboardPage() {
   const fetchData = useCallback(async (isManualRefresh) => {
     if (isManualRefresh) setRefreshing(true);
     try {
+      const currentPerson = persons.find((p) => p.id === selectedPerson) ?? persons[0];
       const params = new URLSearchParams();
       if (selectedTrackingId) params.set("trackingId", selectedTrackingId);
+      params.set("person", currentPerson.username);
       const qs = params.toString();
-      const res = await fetch(`/api/tracker${qs ? `?${qs}` : ""}`);
+      const res = await fetch(`/api/tracker?${qs}`);
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.detail ?? `HTTP ${res.status}`);
@@ -1013,7 +1128,7 @@ export default function DashboardPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedTrackingId]);
+  }, [selectedTrackingId, selectedPerson]);
 
   // Auto-poll every 30s; defer initial fetch so it's not synchronous within the effect
   useEffect(() => {
@@ -1036,26 +1151,45 @@ export default function DashboardPage() {
     setError(null);
   };
 
+  const handleSelectPerson = (personId) => {
+    if (personId === selectedPerson) return;
+    setSelectedPerson(personId);
+    setSelectedTrackingId(null);
+    setLoading(true);
+    setData(null);
+    setError(null);
+  };
+
+  const currentPerson = persons.find((p) => p.id === selectedPerson) ?? persons[0];
+
   if (loading && !data) return <LoadingSkeleton />;
   if (error && !data) return <ErrorState message={error} onRetry={() => fetchData(true)} />;
 
   return (
     <div className="min-h-screen bg-slate-950">
-      <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        <HeaderBlock
-          data={data}
-          trackings={data?.availableTrackings}
-          selectedId={selectedTrackingId}
-          onSelectTracking={handleSelectTracking}
-          lastUpdated={lastUpdated}
-          onRefresh={handleRefresh}
-          refreshing={refreshing}
+      <div className="flex max-w-[1480px] mx-auto px-4 py-6 gap-4">
+        <PersonTabs
+          personsList={persons}
+          selectedId={selectedPerson}
+          onSelect={handleSelectPerson}
         />
-        <MetricGrid data={data} loading={loading} />
-        <ProjectionChart chartData={data?.chartData} loading={loading} />
-        <CatalystTimeline events={data?.events} />
-        <ArbitrageCalculator />
-        <Footer />
+        <div className="flex-1 min-w-0 space-y-6">
+          <HeaderBlock
+            data={data}
+            trackings={data?.availableTrackings}
+            selectedId={selectedTrackingId}
+            onSelectTracking={handleSelectTracking}
+            lastUpdated={lastUpdated}
+            onRefresh={handleRefresh}
+            refreshing={refreshing}
+            person={currentPerson}
+          />
+          <MetricGrid data={data} loading={loading} />
+          <ProjectionChart chartData={data?.chartData} loading={loading} />
+          <CatalystTimeline events={data?.events} person={currentPerson} />
+          <ArbitrageCalculator />
+          <Footer />
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,9 @@
 // ─── Cache abstraction (Map+disk in dev, Upstash Redis in production) ───
 import { cacheGet, cacheSet } from "../../../lib/cache.js";
+import persons from "../../../lib/persons.js";
 
 const CACHE_TTL = 300_000; // 5 minutes
+const NEWS_CACHE_TTL = 1_800_000; // 30 minutes — news doesn't change minute-to-minute
 const RATE_LIMIT_BACKOFF = 600_000; // 10 min backoff when we hit 429
 
 const BROWSER_HEADERS = {
@@ -62,12 +64,12 @@ function calculateStarlinkImpact() {
 }
 
 // ── Velocity calibration from historical weeks ────────────
-const VELOCITY_CACHE_KEY = "__velocity__";
 const VELOCITY_CACHE_TTL = 3_600_000; // 1 hour — velocity doesn't change minute-to-minute
 const MAX_CALIBRATION_WEEKS = 4; // look back at most 4 completed weeks
 
-async function calibrateVelocity(trackings) {
-  const cached = await cacheGet(VELOCITY_CACHE_KEY);
+async function calibrateVelocity(trackings, person = "elonmusk") {
+  const velocityCacheKey = `__velocity__${person}`;
+  const cached = await cacheGet(velocityCacheKey);
   if (cached && Date.now() - cached.timestamp < VELOCITY_CACHE_TTL) {
     return cached.velocity;
   }
@@ -85,13 +87,13 @@ async function calibrateVelocity(trackings) {
     .slice(0, MAX_CALIBRATION_WEEKS);
 
   if (recent.length === 0) {
-    cacheSet(VELOCITY_CACHE_KEY, { velocity: null, timestamp: Date.now() });
+    cacheSet(velocityCacheKey, { velocity: null, timestamp: Date.now() });
     return null;
   }
 
   const results = await Promise.all(
     recent.map((t) => {
-      const url = new URL("https://xtracker.polymarket.com/api/users/elonmusk/posts");
+      const url = new URL(`https://xtracker.polymarket.com/api/users/${person}/posts`);
       url.searchParams.set("startDate", t.startDate);
       url.searchParams.set("endDate", t.endDate);
       return fetch(url.toString(), {
@@ -131,7 +133,7 @@ async function calibrateVelocity(trackings) {
 
   const calibrated = totalWeight > 0 ? weightedSum / totalWeight : null;
 
-  cacheSet(VELOCITY_CACHE_KEY, { velocity: calibrated, timestamp: Date.now() });
+  cacheSet(velocityCacheKey, { velocity: calibrated, timestamp: Date.now() });
   return calibrated;
 }
 
@@ -147,12 +149,105 @@ function isInWindow(dateStr, windowStart, windowEnd) {
   return ms >= windowStart && ms <= windowEnd;
 }
 
+// ── News-based event fetching (for non-Elon persons) ─────
+async function fetchNewsEvents(personConfig, activeStart, activeEnd) {
+  if (!personConfig?.events?.newsQuery || !process.env.NEWS_API_KEY) {
+    return { events: [], totalExtraTweets: 0 };
+  }
+
+  const cacheKey = `news:${personConfig.id}`;
+  const cached = await cacheGet(cacheKey);
+  if (cached && Date.now() - cached.timestamp < NEWS_CACHE_TTL) {
+    return cached.data;
+  }
+
+  try {
+    const fromDate = new Date(activeStart).toISOString().slice(0, 10);
+    const toDate = new Date(activeEnd).toISOString().slice(0, 10);
+    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(personConfig.events.newsQuery)}&from=${fromDate}&to=${toDate}&sortBy=publishedAt&pageSize=10&apiKey=${process.env.NEWS_API_KEY}`;
+
+    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) {
+      if (res.status === 426 || res.status === 429) {
+        // Upgrade required or rate-limited — serve stale if available
+        if (cached) return cached.data;
+      }
+      console.error(`NewsAPI error for ${personConfig.id}: ${res.status}`);
+      return { events: [], totalExtraTweets: 0 };
+    }
+
+    const data = await res.json();
+    const articles = Array.isArray(data.articles) ? data.articles : [];
+
+    const events = [];
+    let totalExtraTweets = 0;
+    const classifiers = personConfig.events.classifiers;
+
+    for (const article of articles) {
+      const text = `${article.title ?? ""} ${article.description ?? ""}`;
+      const eventMs = new Date(article.publishedAt).getTime();
+
+      let matched = false;
+      for (const cls of classifiers) {
+        if (cls.pattern.test(text)) {
+          const extra = HISTORICAL_VELOCITY * (cls.multiplier - 1) * cls.windowHours;
+          const windowMs = cls.windowHours * 60 * 60 * 1000;
+          events.push({
+            name: article.title,
+            provider: article.source?.name ?? "News",
+            launchDate: article.publishedAt,
+            type: cls.type,
+            multiplier: cls.multiplier,
+            extraTweets: Math.round(extra * 100) / 100,
+            windowStart: new Date(eventMs - windowMs / 2).toISOString(),
+            windowEnd: new Date(eventMs + windowMs / 2).toISOString(),
+          });
+          totalExtraTweets += extra;
+          matched = true;
+          break;
+        }
+      }
+
+      // Default: small boost for any news mention
+      if (!matched) {
+        const extra = HISTORICAL_VELOCITY * (1.15 - 1) * 4;
+        const windowMs = 4 * 60 * 60 * 1000;
+        events.push({
+          name: article.title,
+          provider: article.source?.name ?? "News",
+          launchDate: article.publishedAt,
+          type: "news",
+          multiplier: 1.15,
+          extraTweets: Math.round(extra * 100) / 100,
+          windowStart: new Date(eventMs - windowMs / 2).toISOString(),
+          windowEnd: new Date(eventMs + windowMs / 2).toISOString(),
+        });
+        totalExtraTweets += extra;
+      }
+    }
+
+    events.sort((a, b) => new Date(a.launchDate).getTime() - new Date(b.launchDate).getTime());
+
+    const result = {
+      events,
+      totalExtraTweets: Math.round(totalExtraTweets * 100) / 100,
+    };
+
+    cacheSet(cacheKey, { data: result, timestamp: Date.now() });
+    return result;
+  } catch (err) {
+    console.error(`NewsAPI fetch error for ${personConfig.id}:`, err.message);
+    return { events: [], totalExtraTweets: 0 };
+  }
+}
+
 // ── Main handler ─────────────────────────────────────────
 export async function GET(request) {
   const now = Date.now();
   const { searchParams } = new URL(request.url);
   const selectedTrackingId = searchParams.get("trackingId");
-  const cacheKey = selectedTrackingId ?? "__active__";
+  const person = searchParams.get("person") || "elonmusk";
+  const cacheKey = `${person}:${selectedTrackingId ?? "__active__"}`;
 
   const cached = await cacheGet(cacheKey);
   if (cached && now - cached.timestamp < CACHE_TTL) {
@@ -164,19 +259,21 @@ export async function GET(request) {
   }
 
   try {
-    // ── 0. Check if we're in a rate-limit backoff period ─────
+    // ── 0. Determine if this is Elon (uses SpaceX events) vs news-based persons ──
+    const isElon = person === "elonmusk";
     const rateLimitMarker = await cacheGet("__rate_limited__");
     var isRateLimited = rateLimitMarker && Date.now() < rateLimitMarker.timestamp;
 
-    // ── 1. Fetch all external data in parallel (skip Space Devs if rate-limited) ──
+    // ── 1. Fetch external data in parallel ──
     const fetchPromises = [
-      fetch("https://xtracker.polymarket.com/api/users/elonmusk", {
+      fetch(`https://xtracker.polymarket.com/api/users/${person}`, {
         headers: BROWSER_HEADERS,
         signal: AbortSignal.timeout(10_000),
       }),
     ];
 
-    if (!isRateLimited) {
+    // Only fetch SpaceX / Tesla / Starlink events for Elon
+    if (isElon && !isRateLimited) {
       fetchPromises.push(
         fetch("https://ll.thespacedevs.com/2.2.0/launch/upcoming/?search=SpaceX", {
           signal: AbortSignal.timeout(10_000),
@@ -193,7 +290,7 @@ export async function GET(request) {
       : [results[0], { ok: false, status: 429 }, { ok: false, status: 429 }];
 
     // If Space Devs is rate-limited, serve stale cache or set a backoff marker
-    if (launchesRes.status === 429 || eventsRes.status === 429) {
+    if (isElon && (launchesRes.status === 429 || eventsRes.status === 429)) {
       const stale = await cacheGet(cacheKey);
       if (stale) {
         // Extend the cache so we don't hammer the API
@@ -221,6 +318,13 @@ export async function GET(request) {
       throw new Error("Invalid JSON from Polymarket user API");
     }
 
+    // Check if the API returned an error (e.g. user not found)
+    if (userData.success === false) {
+      throw new Error(userData.error === "User not found"
+        ? `User "${person}" not found on Polymarket tracker`
+        : (userData.error ?? "Unknown API error"));
+    }
+
     const rawTrackings = (() => {
       if (Array.isArray(userData)) return userData;
       if (userData.data && Array.isArray(userData.data.trackings)) return userData.data.trackings;
@@ -245,7 +349,7 @@ export async function GET(request) {
     }));
 
     // ── 2a. Kick off velocity calibration (runs in parallel with steps 3-6) ──
-    const velocityPromise = calibrateVelocity(trackings);
+    const velocityPromise = calibrateVelocity(trackings, person);
 
     const selected = selectedTrackingId
       ? trackings.find((t) => String(t.id) === String(selectedTrackingId))
@@ -267,7 +371,7 @@ export async function GET(request) {
     const activeEnd = new Date(endDate).getTime();
 
     // ── 3. Fetch post count ──────────────────────────────────
-    const postsUrl = new URL("https://xtracker.polymarket.com/api/users/elonmusk/posts");
+    const postsUrl = new URL(`https://xtracker.polymarket.com/api/users/${person}/posts`);
     postsUrl.searchParams.set("startDate", startDate);
     postsUrl.searchParams.set("endDate", endDate);
 
@@ -320,9 +424,9 @@ export async function GET(request) {
       }
     }
 
-    // ── 4. Process SpaceX launches ────────────────────────────
+    // ── 4. Process SpaceX launches (Elon only) ────────────────
     let launchesData = { results: [] };
-    if (launchesRes.ok) {
+    if (isElon && launchesRes.ok) {
       try {
         launchesData = await launchesRes.json();
       } catch {
@@ -330,13 +434,15 @@ export async function GET(request) {
       }
     }
 
-    const launchResults = extractResults(launchesData).filter((l) =>
-      isInWindow(l.net, activeStart, activeEnd),
-    );
+    const launchResults = isElon
+      ? extractResults(launchesData).filter((l) =>
+          isInWindow(l.net, activeStart, activeEnd),
+        )
+      : [];
 
-    // ── 5. Process Tesla & Starlink events from events API ────
+    // ── 5. Process Tesla & Starlink events (Elon only) ────────
     let eventsData = { results: [] };
-    if (eventsRes.ok) {
+    if (isElon && eventsRes.ok) {
       try {
         eventsData = await eventsRes.json();
       } catch {
@@ -344,17 +450,19 @@ export async function GET(request) {
       }
     }
 
-    const allEvents = extractResults(eventsData).filter((e) =>
-      isInWindow(e.date, activeStart, activeEnd),
-    );
+    const allEvents = isElon
+      ? extractResults(eventsData).filter((e) =>
+          isInWindow(e.date, activeStart, activeEnd),
+        )
+      : [];
 
-    const teslaResults = allEvents.filter(
-      (e) => isTeslaEvent(e.name, e.description),
-    );
+    const teslaResults = isElon
+      ? allEvents.filter((e) => isTeslaEvent(e.name, e.description))
+      : [];
 
-    const starlinkResults = allEvents.filter(
-      (e) => isStarlinkEvent(e.name, e.description),
-    );
+    const starlinkResults = isElon
+      ? allEvents.filter((e) => isStarlinkEvent(e.name, e.description))
+      : [];
 
     // ── 6. Build unified events timeline ──────────────────────
     const events = [];
@@ -419,6 +527,19 @@ export async function GET(request) {
 
     // Sort by date ascending
     events.sort((a, b) => new Date(a.launchDate).getTime() - new Date(b.launchDate).getTime());
+
+    // ── 6b. For non-Elon persons, fetch news-based events ─────
+    if (!isElon) {
+      events.length = 0;
+      totalExtraTweets = 0;
+
+      const personConfig = persons.find((p) => p.username === person);
+      if (personConfig?.events) {
+        const newsResult = await fetchNewsEvents(personConfig, activeStart, activeEnd);
+        events.push(...newsResult.events);
+        totalExtraTweets = newsResult.totalExtraTweets;
+      }
+    }
 
     // ── 7. Prediction math (with calibrated velocity) ─────────
     const calibratedVelocity = await velocityPromise;
