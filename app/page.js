@@ -269,7 +269,7 @@ function LoadingSkeleton() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="flex max-w-[1480px] mx-auto px-4 py-6 gap-4">
-        <div className="hidden md:flex shrink-0 pt-2 flex-col gap-1 w-56">
+        <div className="hidden md:flex shrink-0 flex-col gap-1 w-56">
           {[1, 2, 3, 4, 5, 6, 7].map((i) => (
             <div key={i} className="flex items-center gap-3 px-2.5 py-2 rounded-lg bg-slate-800/60 animate-pulse h-10">
               <div className="w-8 h-8 rounded-lg bg-slate-700/60 shrink-0" />
@@ -1036,7 +1036,7 @@ function Footer() {
 
 function PersonTabs({ personsList, selectedId, onSelect }) {
   return (
-    <div className="hidden md:block shrink-0 pt-2">
+    <div className="hidden md:block shrink-0">
       <div className="sticky top-6 flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-900/70 backdrop-blur-sm p-2 shadow-lg shadow-black/20 w-56">
         {personsList.map((p) => {
           const isActive = p.id === selectedId;

@@ -150,7 +150,7 @@ function isInWindow(dateStr, windowStart, windowEnd) {
 }
 
 // ── News-based event fetching (for non-Elon persons) ─────
-async function fetchNewsEvents(personConfig, activeStart, activeEnd) {
+async function fetchNewsEvents(personConfig) {
   if (!personConfig?.events?.newsQuery || !process.env.NEWS_API_KEY) {
     return { events: [], totalExtraTweets: 0 };
   }
@@ -162,8 +162,10 @@ async function fetchNewsEvents(personConfig, activeStart, activeEnd) {
   }
 
   try {
-    const fromDate = new Date(activeStart).toISOString().slice(0, 10);
-    const toDate = new Date(activeEnd).toISOString().slice(0, 10);
+    // Search recent news (last 7 days), not the tracking window — news is about current events
+    const now = Date.now();
+    const fromDate = new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const toDate = new Date(now).toISOString().slice(0, 10);
     const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(personConfig.events.newsQuery)}&from=${fromDate}&to=${toDate}&sortBy=publishedAt&pageSize=10&apiKey=${process.env.NEWS_API_KEY}`;
 
     const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
@@ -535,7 +537,7 @@ export async function GET(request) {
 
       const personConfig = persons.find((p) => p.username === person);
       if (personConfig?.events) {
-        const newsResult = await fetchNewsEvents(personConfig, activeStart, activeEnd);
+        const newsResult = await fetchNewsEvents(personConfig);
         events.push(...newsResult.events);
         totalExtraTweets = newsResult.totalExtraTweets;
       }
